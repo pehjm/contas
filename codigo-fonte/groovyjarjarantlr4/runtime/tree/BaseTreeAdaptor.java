@@ -1,0 +1,188 @@
+/*
+ * Decompiled with CFR 0.152.
+ */
+package groovyjarjarantlr4.runtime.tree;
+
+import groovyjarjarantlr4.runtime.RecognitionException;
+import groovyjarjarantlr4.runtime.Token;
+import groovyjarjarantlr4.runtime.TokenStream;
+import groovyjarjarantlr4.runtime.tree.CommonErrorNode;
+import groovyjarjarantlr4.runtime.tree.Tree;
+import groovyjarjarantlr4.runtime.tree.TreeAdaptor;
+import java.util.HashMap;
+import java.util.Map;
+
+public abstract class BaseTreeAdaptor
+implements TreeAdaptor {
+    protected Map<Object, Integer> treeToUniqueIDMap;
+    protected int uniqueNodeID = 1;
+
+    @Override
+    public Object nil() {
+        return this.create(null);
+    }
+
+    @Override
+    public Object errorNode(TokenStream input, Token start, Token stop, RecognitionException e) {
+        CommonErrorNode t = new CommonErrorNode(input, start, stop, e);
+        return t;
+    }
+
+    @Override
+    public boolean isNil(Object tree) {
+        return ((Tree)tree).isNil();
+    }
+
+    @Override
+    public Object dupTree(Object tree) {
+        return this.dupTree(tree, null);
+    }
+
+    public Object dupTree(Object t, Object parent) {
+        if (t == null) {
+            return null;
+        }
+        Object newTree = this.dupNode(t);
+        this.setChildIndex(newTree, this.getChildIndex(t));
+        this.setParent(newTree, parent);
+        int n = this.getChildCount(t);
+        for (int i = 0; i < n; ++i) {
+            Object child = this.getChild(t, i);
+            Object newSubTree = this.dupTree(child, t);
+            this.addChild(newTree, newSubTree);
+        }
+        return newTree;
+    }
+
+    @Override
+    public void addChild(Object t, Object child) {
+        if (t != null && child != null) {
+            ((Tree)t).addChild((Tree)child);
+        }
+    }
+
+    @Override
+    public Object becomeRoot(Object newRoot, Object oldRoot) {
+        Tree newRootTree = (Tree)newRoot;
+        Tree oldRootTree = (Tree)oldRoot;
+        if (oldRoot == null) {
+            return newRoot;
+        }
+        if (newRootTree.isNil()) {
+            int nc = newRootTree.getChildCount();
+            if (nc == 1) {
+                newRootTree = newRootTree.getChild(0);
+            } else if (nc > 1) {
+                throw new RuntimeException("more than one node as root (TODO: make exception hierarchy)");
+            }
+        }
+        newRootTree.addChild(oldRootTree);
+        return newRootTree;
+    }
+
+    @Override
+    public Object rulePostProcessing(Object root) {
+        Tree r = (Tree)root;
+        if (r != null && r.isNil()) {
+            if (r.getChildCount() == 0) {
+                r = null;
+            } else if (r.getChildCount() == 1) {
+                r = r.getChild(0);
+                r.setParent(null);
+                r.setChildIndex(-1);
+            }
+        }
+        return r;
+    }
+
+    @Override
+    public Object becomeRoot(Token newRoot, Object oldRoot) {
+        return this.becomeRoot(this.create(newRoot), oldRoot);
+    }
+
+    @Override
+    public Object create(int tokenType, Token fromToken) {
+        fromToken = this.createToken(fromToken);
+        fromToken.setType(tokenType);
+        Tree t = (Tree)this.create(fromToken);
+        return t;
+    }
+
+    @Override
+    public Object create(int tokenType, Token fromToken, String text) {
+        if (fromToken == null) {
+            return this.create(tokenType, text);
+        }
+        fromToken = this.createToken(fromToken);
+        fromToken.setType(tokenType);
+        fromToken.setText(text);
+        Tree t = (Tree)this.create(fromToken);
+        return t;
+    }
+
+    @Override
+    public Object create(int tokenType, String text) {
+        Token fromToken = this.createToken(tokenType, text);
+        Tree t = (Tree)this.create(fromToken);
+        return t;
+    }
+
+    @Override
+    public int getType(Object t) {
+        return ((Tree)t).getType();
+    }
+
+    @Override
+    public void setType(Object t, int type) {
+        throw new NoSuchMethodError("don't know enough about Tree node");
+    }
+
+    @Override
+    public String getText(Object t) {
+        return ((Tree)t).getText();
+    }
+
+    @Override
+    public void setText(Object t, String text) {
+        throw new NoSuchMethodError("don't know enough about Tree node");
+    }
+
+    @Override
+    public Object getChild(Object t, int i) {
+        return ((Tree)t).getChild(i);
+    }
+
+    @Override
+    public void setChild(Object t, int i, Object child) {
+        ((Tree)t).setChild(i, (Tree)child);
+    }
+
+    @Override
+    public Object deleteChild(Object t, int i) {
+        return ((Tree)t).deleteChild(i);
+    }
+
+    @Override
+    public int getChildCount(Object t) {
+        return ((Tree)t).getChildCount();
+    }
+
+    @Override
+    public int getUniqueID(Object node) {
+        Integer prevID;
+        if (this.treeToUniqueIDMap == null) {
+            this.treeToUniqueIDMap = new HashMap<Object, Integer>();
+        }
+        if ((prevID = this.treeToUniqueIDMap.get(node)) != null) {
+            return prevID;
+        }
+        int ID = this.uniqueNodeID++;
+        this.treeToUniqueIDMap.put(node, ID);
+        return ID;
+    }
+
+    public abstract Token createToken(int var1, String var2);
+
+    public abstract Token createToken(Token var1);
+}
+
